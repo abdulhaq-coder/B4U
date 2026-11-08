@@ -1,9 +1,10 @@
 import { Role } from '@prisma/client';
 
 export interface JwtPayload {
-  sub: string; // user id
+  sub: string;
   role: Role;
-  sid: string; // session id
+  sid: string;
+  pc: boolean; // profile completed
 }
 
 export interface RefreshPayload {
@@ -16,10 +17,10 @@ export interface AuthUser {
   id: string;
   role: Role;
   sessionId: string;
+  profileCompleted: boolean;
 }
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
 }
-

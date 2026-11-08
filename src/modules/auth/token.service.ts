@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@prisma/client';
+import { User } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
 import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,6 +11,8 @@ export interface SessionMeta {
   ip?: string;
   userAgent?: string;
 }
+
+type TokenUser = Pick<User, 'id' | 'role' | 'profileCompletedAt'>;
 
 @Injectable()
 export class TokenService {
@@ -30,8 +32,7 @@ export class TokenService {
     this.refreshTtl = config.get('JWT_REFRESH_TTL_DAYS', { infer: true }) * 86_400;
   }
 
-  /** Issues new session and access/refresh token pair */
-  async issueSession(user: { id: string; role: Role }, meta: SessionMeta): Promise<AuthTokens> {
+  async issueSession(user: TokenUser, meta: SessionMeta): Promise<AuthTokens> {
     const sessionId = randomUUID();
     const refreshToken = await this.signRefresh(user.id, sessionId);
 
@@ -49,7 +50,11 @@ export class TokenService {
     return { accessToken: await this.signAccess(user, sessionId), refreshToken };
   }
 
-  /** Refresh token rotation with reuse detection */
+  /** Same session ke liye naya access token (jaise profile complete hone ke baad). */
+  issueAccessToken(user: TokenUser, sessionId: string): Promise<string> {
+    return this.signAccess(user, sessionId);
+  }
+
   async rotate(refreshToken: string): Promise<AuthTokens> {
     let payload: RefreshPayload;
     try {
@@ -78,14 +83,12 @@ export class TokenService {
 
     const newRefresh = await this.signRefresh(session.userId, session.id);
 
-    // Atomic update only if hash still matches
     const res = await this.prisma.session.updateMany({
       where: { id: session.id, refreshTokenHash: this.hash(refreshToken), revokedAt: null },
       data: { refreshTokenHash: this.hash(newRefresh) },
     });
 
     if (res.count === 0) {
-      // Reuse detected! Compromised token: invalidate all sessions for user
       await this.revokeAll(session.userId);
       throw new UnauthorizedException('Refresh token reuse detected');
     }
@@ -110,8 +113,13 @@ export class TokenService {
     });
   }
 
-  private signAccess(user: { id: string; role: Role }, sid: string): Promise<string> {
-    const payload: JwtPayload = { sub: user.id, role: user.role, sid };
+  private signAccess(user: TokenUser, sid: string): Promise<string> {
+    const payload: JwtPayload = {
+      sub: user.id,
+      role: user.role,
+      sid,
+      pc: !!user.profileCompletedAt,
+    };
     return this.jwt.signAsync(payload, { secret: this.accessSecret, expiresIn: this.accessTtl });
   }
 
@@ -124,4 +132,3 @@ export class TokenService {
     return createHash('sha256').update(token).digest('hex');
   }
 }
-

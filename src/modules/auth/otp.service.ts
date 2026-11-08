@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OtpPurpose } from '@prisma/client';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -19,10 +20,16 @@ export class OtpService {
     this.secret = config.get('OTP_SECRET', { infer: true });
   }
 
-  /** Issues a new 6-digit OTP, expires previous unconsumed OTPs for this email */
-  async issue(email: string): Promise<string> {
+  async hasActive(email: string, purpose: OtpPurpose): Promise<boolean> {
+    const count = await this.prisma.otpCode.count({
+      where: { email, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
+    });
+    return count > 0;
+  }
+
+  async issue(email: string, purpose: OtpPurpose): Promise<string> {
     const last = await this.prisma.otpCode.findFirst({
-      where: { email },
+      where: { email, purpose },
       orderBy: { createdAt: 'desc' },
     });
     if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) {
@@ -33,13 +40,14 @@ export class OtpService {
 
     await this.prisma.$transaction([
       this.prisma.otpCode.updateMany({
-        where: { email, consumedAt: null },
+        where: { email, purpose, consumedAt: null },
         data: { consumedAt: new Date() },
       }),
       this.prisma.otpCode.create({
         data: {
           email,
-          codeHash: this.hash(email, code),
+          purpose,
+          codeHash: this.hash(email, purpose, code),
           expiresAt: new Date(Date.now() + OTP_TTL_MS),
         },
       }),
@@ -48,10 +56,9 @@ export class OtpService {
     return code;
   }
 
-  /** Verifies OTP, checks attempts and expiration, consumes atomically */
-  async verify(email: string, code: string): Promise<void> {
+  async verify(email: string, purpose: OtpPurpose, code: string): Promise<void> {
     const record = await this.prisma.otpCode.findFirst({
-      where: { email, consumedAt: null, expiresAt: { gt: new Date() } },
+      where: { email, purpose, consumedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -60,7 +67,7 @@ export class OtpService {
     }
 
     const expected = Buffer.from(record.codeHash);
-    const actual = Buffer.from(this.hash(email, code));
+    const actual = Buffer.from(this.hash(email, purpose, code));
     if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
       await this.prisma.otpCode.update({
         where: { id: record.id },
@@ -69,18 +76,14 @@ export class OtpService {
       throw new UnauthorizedException('Invalid or expired code');
     }
 
-    // Atomic consume
     const res = await this.prisma.otpCode.updateMany({
       where: { id: record.id, consumedAt: null },
       data: { consumedAt: new Date() },
     });
-    if (res.count === 0) {
-      throw new UnauthorizedException('Invalid or expired code');
-    }
+    if (res.count === 0) throw new UnauthorizedException('Invalid or expired code');
   }
 
-  private hash(email: string, code: string): string {
-    return createHmac('sha256', this.secret).update(`${email}:${code}`).digest('hex');
+  private hash(email: string, purpose: OtpPurpose, code: string): string {
+    return createHmac('sha256', this.secret).update(`${purpose}:${email}:${code}`).digest('hex');
   }
 }
-

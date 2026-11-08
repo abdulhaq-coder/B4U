@@ -15,35 +15,75 @@ enum Role {
 }
 
 enum UserStatus {
+  PENDING_VERIFICATION
   ACTIVE
   SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }
 
 model User {
   id              String     @id @default(uuid())
   email           String     @unique
-  name            String?
-  phone           String?    @unique
-  role            Role       @default(CUSTOMER)
-  status          UserStatus @default(ACTIVE)
+  fullName        String
+  passwordHash    String?
+  role            Role
+  status          UserStatus @default(PENDING_VERIFICATION)
   emailVerifiedAt DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  sessions        Session[]
+  termsAcceptedAt DateTime
+  termsVersion    String
 
+  dateOfBirth        DateTime? @db.Date
+  phone              String?
+  gender             Gender?
+  countryCode        String?   @db.Char(2)
+  cityId             String?
+  city               City?     @relation(fields: [cityId], references: [id])
+  profileCompletedAt DateTime?
+
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  sessions         Session[]
+
+  @@index([cityId])
   @@map("users")
 }
 
+model City {
+  id          String  @id @default(uuid())
+  name        String
+  province    String
+  countryCode String  @default("PK") @db.Char(2)
+  isActive    Boolean @default(true)
+  users       User[]
+
+  @@unique([countryCode, name])
+  @@map("cities")
+}
+
 model OtpCode {
-  id         String    @id @default(uuid())
+  id         String     @id @default(uuid())
   email      String
+  purpose    OtpPurpose
   codeHash   String
-  attempts   Int       @default(0)
+  attempts   Int        @default(0)
   expiresAt  DateTime
   consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime   @default(now())
 
-  @@index([email, createdAt])
+  @@index([email, purpose, createdAt])
   @@map("otp_codes")
 }
 
@@ -61,4 +101,3 @@ model Session {
   @@index([userId])
   @@map("sessions")
 }
-
