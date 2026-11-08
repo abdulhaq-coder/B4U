@@ -17,3 +17,4 @@ export class LocationsService {
     return this.prisma.city.findUnique({ where: { id } });
   }
 }
+

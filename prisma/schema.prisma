@@ -32,6 +32,11 @@ enum OtpPurpose {
   PASSWORD_RESET
 }
 
+enum SocialProvider {
+  GOOGLE
+  APPLE
+}
+
 model User {
   id              String     @id @default(uuid())
   email           String     @unique
@@ -51,14 +56,29 @@ model User {
   city               City?     @relation(fields: [cityId], references: [id])
   profileCompletedAt DateTime?
 
-  failedLoginCount Int       @default(0)
+  failedLoginCount Int             @default(0)
   lockedUntil      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   sessions         Session[]
+  socialAccounts   SocialAccount[]
 
   @@index([cityId])
   @@map("users")
+}
+
+model SocialAccount {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       SocialProvider
+  providerUserId String
+  email          String?
+  createdAt      DateTime       @default(now())
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("social_accounts")
 }
 
 model City {

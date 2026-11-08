@@ -6,13 +6,14 @@ import { createHash, randomUUID } from 'crypto';
 import { Env } from '../../config/env.validation';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthTokens, JwtPayload, RefreshPayload } from './interfaces/jwt-payload.interface';
+import { isOnboarded } from '../users/user.mapper';
 
 export interface SessionMeta {
   ip?: string;
   userAgent?: string;
 }
 
-type TokenUser = Pick<User, 'id' | 'role' | 'profileCompletedAt'>;
+type TokenUser = Pick<User, 'id' | 'role' | 'profileCompletedAt' | 'passwordHash'>;
 
 @Injectable()
 export class TokenService {
@@ -113,12 +114,19 @@ export class TokenService {
     });
   }
 
+  async revokeOtherSessions(userId: string, keepSessionId: string): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: { userId, id: { not: keepSessionId }, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   private signAccess(user: TokenUser, sid: string): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       role: user.role,
       sid,
-      pc: !!user.profileCompletedAt,
+      pc: isOnboarded(user),
     };
     return this.jwt.signAsync(payload, { secret: this.accessSecret, expiresIn: this.accessTtl });
   }

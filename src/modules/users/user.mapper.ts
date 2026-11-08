@@ -1,12 +1,18 @@
 import { User } from '@prisma/client';
 
-export type NextStep = 'COMPLETE_PROFILE' | 'HOME';
+export type NextStep = 'SET_PASSWORD' | 'COMPLETE_PROFILE' | 'HOME';
+type OnboardingFields = Pick<User, 'profileCompletedAt' | 'passwordHash'>;
 
-export function nextStepFor(user: Pick<User, 'profileCompletedAt'>): NextStep {
-  return user.profileCompletedAt ? 'HOME' : 'COMPLETE_PROFILE';
+export function isOnboarded(u: OnboardingFields): boolean {
+  return !!u.profileCompletedAt && !!u.passwordHash;
 }
 
-/** Client ko sirf ye fields jayengi (passwordHash wagera kabhi nahi). */
+export function nextStepFor(u: OnboardingFields): NextStep {
+  if (!u.passwordHash) return 'SET_PASSWORD';
+  if (!u.profileCompletedAt) return 'COMPLETE_PROFILE';
+  return 'HOME';
+}
+
 export function toPublicUser(u: User) {
   return {
     id: u.id,
@@ -19,5 +25,6 @@ export function toPublicUser(u: User) {
     countryCode: u.countryCode,
     cityId: u.cityId,
     profileCompleted: !!u.profileCompletedAt,
+    hasPassword: !!u.passwordHash,
   };
 }

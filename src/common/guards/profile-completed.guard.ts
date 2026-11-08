@@ -17,12 +17,13 @@ export class ProfileCompletedGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest<{ user?: AuthUser }>();
     if (!user) return true; // @Public route
 
-    if (!user.profileCompleted) {
+    if (!user.onboarded) {
       throw new ForbiddenException({
-        code: 'PROFILE_INCOMPLETE',
-        message: 'Please complete your profile first',
+        code: 'ONBOARDING_INCOMPLETE',
+        message: 'Please complete your account setup first',
       });
     }
     return true;
   }
 }
+

@@ -17,7 +17,7 @@ export interface AuthUser {
   id: string;
   role: Role;
   sessionId: string;
-  profileCompleted: boolean;
+  onboarded: boolean; // profile bhari + password set
 }
 
 export interface AuthTokens {

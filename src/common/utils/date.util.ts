@@ -12,3 +12,4 @@ export function ageInYears(dob: Date, now = new Date()): number {
   if (m < 0 || (m === 0 && now.getUTCDate() < dob.getUTCDate())) age--;
   return age;
 }
+

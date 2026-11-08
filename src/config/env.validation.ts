@@ -18,6 +18,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string(),
+
+  GOOGLE_CLIENT_IDS: z.string().default(''),
+  APPLE_CLIENT_IDS: z.string().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

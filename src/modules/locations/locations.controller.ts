@@ -16,3 +16,4 @@ export class LocationsController {
     return this.locations.listCities(query.countryCode);
   }
 }
+

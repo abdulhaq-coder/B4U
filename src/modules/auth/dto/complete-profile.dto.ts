@@ -26,3 +26,4 @@ export class CompleteProfileDto {
   @IsUUID()
   cityId!: string;
 }
+

@@ -192,7 +192,7 @@ export class AuthService {
 
   private async sendVerificationCode(email: string) {
     const code = await this.otp.issue(email, OtpPurpose.EMAIL_VERIFICATION);
-    await this.mail.sendOtp(email, code);
+    await this.mail.sendOtp(email, code, OtpPurpose.EMAIL_VERIFICATION);
   }
 
   private buildAuthResponse(user: User, tokens: AuthTokens) {

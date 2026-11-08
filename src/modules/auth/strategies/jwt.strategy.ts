@@ -21,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: payload.sub,
       role: payload.role,
       sessionId: payload.sid,
-      profileCompleted: payload.pc === true,
+      onboarded: payload.pc === true,
     };
   }
 }

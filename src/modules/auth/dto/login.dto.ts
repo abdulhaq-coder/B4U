@@ -16,3 +16,4 @@ export class LoginDto extends RequestOtpDto {
   @IsIn(CLIENT_ROLES)
   role!: Role;
 }
+

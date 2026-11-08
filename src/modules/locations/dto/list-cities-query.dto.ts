@@ -9,3 +9,4 @@ export class ListCitiesQueryDto {
   @Matches(/^[A-Z]{2}$/)
   countryCode: string = 'PK';
 }
+
