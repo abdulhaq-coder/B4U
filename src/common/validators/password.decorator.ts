@@ -10,3 +10,4 @@ export function PasswordField() {
     Matches(/\d/, { message: 'password must contain at least one number' }),
   );
 }
+

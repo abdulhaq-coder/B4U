@@ -11,3 +11,4 @@ export class SetPasswordDto {
   @Match('password')
   confirmPassword!: string;
 }
+

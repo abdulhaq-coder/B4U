@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { Gender } from '@prisma/client';
 
 export class CompleteProfileDto {
@@ -25,5 +25,9 @@ export class CompleteProfileDto {
   @ApiProperty({ example: 'UUID', description: 'Valid city ID from /locations/cities' })
   @IsUUID()
   cityId!: string;
-}
 
+  @ApiPropertyOptional({ description: 'Optional media asset ID for avatar' })
+  @IsOptional()
+  @IsUUID()
+  avatarId?: string;
+}

@@ -32,3 +32,4 @@ export class SocialLoginDto {
   @MaxLength(80)
   fullName?: string;
 }
+

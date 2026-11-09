@@ -6,6 +6,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_DURATION_MS = 15 * 60 * 1000;
 
+export type UserWithAvatar = User & { avatar: { key: string } | null };
+const WITH_AVATAR = { avatar: { select: { key: true } } } as const;
+
 interface PendingData {
   fullName: string;
   passwordHash: string;
@@ -24,12 +27,12 @@ interface ProfileData {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { email } });
+  findByEmail(email: string): Promise<UserWithAvatar | null> {
+    return this.prisma.user.findUnique({ where: { email }, include: WITH_AVATAR });
   }
 
-  findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({ where: { id } });
+  findById(id: string): Promise<UserWithAvatar | null> {
+    return this.prisma.user.findUnique({ where: { id }, include: WITH_AVATAR });
   }
 
   createPending(data: PendingData & { email: string }): Promise<User> {
@@ -52,17 +55,18 @@ export class UsersService {
     });
   }
 
-  completeProfile(id: string, data: ProfileData): Promise<User> {
+  completeProfile(id: string, data: ProfileData): Promise<UserWithAvatar> {
     return this.prisma.user.update({
       where: { id },
       data: { ...data, profileCompletedAt: new Date() },
+      include: WITH_AVATAR,
     });
   }
 
-  async findBySocial(provider: SocialProvider, providerUserId: string): Promise<User | null> {
+  async findBySocial(provider: SocialProvider, providerUserId: string): Promise<UserWithAvatar | null> {
     const link = await this.prisma.socialAccount.findUnique({
       where: { provider_providerUserId: { provider, providerUserId } },
-      include: { user: true },
+      include: { user: { include: WITH_AVATAR } },
     });
     return link?.user ?? null;
   }

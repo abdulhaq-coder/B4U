@@ -8,3 +8,4 @@ export function assertNonce(claim: unknown, expected?: string): void {
     throw new Error('nonce mismatch');
   }
 }
+

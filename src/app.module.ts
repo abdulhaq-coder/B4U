@@ -9,6 +9,7 @@ import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { MailModule } from './modules/mail/mail.module';
+import { MediaModule } from './modules/media/media.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     UsersModule,
     MailModule,
     LocationsModule,
+    MediaModule,
     AuthModule,
   ],
   providers: [

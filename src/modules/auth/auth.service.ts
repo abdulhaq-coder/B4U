@@ -12,6 +12,7 @@ import { ageInYears, parseIsoDate } from '../../common/utils/date.util';
 import { toE164 } from '../../common/utils/phone.util';
 import { LocationsService } from '../locations/locations.service';
 import { MailService } from '../mail/mail.service';
+import { MediaService } from '../media/media.service';
 import { nextStepFor, toPublicUser } from '../users/user.mapper';
 import { UsersService } from '../users/users.service';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly mail: MailService,
     private readonly passwords: PasswordService,
     private readonly locations: LocationsService,
+    private readonly media: MediaService,
   ) {}
 
   // ---------- Register + email verification ----------
@@ -152,6 +154,8 @@ export class AuthService {
 
     const phone = toE164(dto.phone, dto.countryCode);
     if (!phone) throw new BadRequestException('Phone number is invalid');
+
+    if (dto.avatarId) await this.media.setAvatar(user.id, dto.avatarId);
 
     const updated = await this.users.completeProfile(user.id, {
       dateOfBirth: dob,

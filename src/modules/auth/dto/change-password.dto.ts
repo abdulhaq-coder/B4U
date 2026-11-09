@@ -18,3 +18,4 @@ export class ChangePasswordDto {
   @Match('newPassword')
   confirmPassword!: string;
 }
+

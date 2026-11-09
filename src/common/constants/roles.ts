@@ -1,5 +1,4 @@
 import { Role } from '@prisma/client';
 
-// Jo roles apps se signup/login kar sakte hain. Version 2 me yahan add honge.
-export const CLIENT_ROLES = [Role.CUSTOMER, Role.OWNER] as const;
-
+export const CLIENT_ROLES = [Role.CUSTOMER, Role.OWNER] as const; // signup / social
+export const LOGIN_ROLES = [Role.CUSTOMER, Role.OWNER, Role.ADMIN] as const; // password login

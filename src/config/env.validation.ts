@@ -21,6 +21,14 @@ const envSchema = z.object({
 
   GOOGLE_CLIENT_IDS: z.string().default(''),
   APPLE_CLIENT_IDS: z.string().default(''),
+
+  S3_ENDPOINT: z.string().default(''),
+  S3_REGION: z.string().default('us-east-1'),
+  S3_BUCKET: z.string().min(1),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_FORCE_PATH_STYLE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  MEDIA_PUBLIC_BASE_URL: z.string().url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

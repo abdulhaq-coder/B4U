@@ -7,3 +7,4 @@ export interface SocialProfile {
   emailVerified: boolean;
   name: string | null;
 }
+

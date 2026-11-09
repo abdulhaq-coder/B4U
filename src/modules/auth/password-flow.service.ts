@@ -95,3 +95,4 @@ export class PasswordFlowService {
     return { user: toPublicUser(user), accessToken, nextStep: nextStepFor(user) };
   }
 }
+

@@ -12,11 +12,12 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { SocialProvider } from '@prisma/client';
+import { Role, SocialProvider } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AllowIncompleteProfile } from '../../common/decorators/allow-incomplete-profile.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthService } from './auth.service';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
@@ -161,6 +162,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @AllowIncompleteProfile()
+  @Roles(Role.CUSTOMER)
   @Patch('profile/complete')
   @ApiOperation({ summary: 'Complete profile (DOB, phone, gender, cityId)' })
   completeProfile(@CurrentUser() user: AuthUser, @Body() dto: CompleteProfileDto) {

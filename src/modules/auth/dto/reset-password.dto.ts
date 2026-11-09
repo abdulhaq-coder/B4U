@@ -12,3 +12,4 @@ export class ResetPasswordDto extends VerifyOtpDto {
   @Match('password')
   confirmPassword!: string;
 }
+
