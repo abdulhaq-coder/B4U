@@ -1,2 +1,3 @@
 export const CURRENT_TERMS_VERSION = '2026-11-08';
+export const CURRENT_PARTNER_TERMS_VERSION = '2026-11-10';
 

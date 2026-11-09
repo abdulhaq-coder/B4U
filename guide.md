@@ -41,6 +41,10 @@ parlour_backend/
 │   ├── schema.prisma               # Enterprise database schema (Users, Brands, Branches, Media, etc.)
 │   └── seed.ts                     # Database seeder (29 Pakistan cities + Default Admin)
 │
+├── test/
+│   ├── jest-e2e.json               # E2E test configuration
+│   └── app.e2e-spec.ts             # 20-point automated E2E test suite (Health, Cust, Owner, Admin, RBAC)
+│
 └── src/
     ├── main.ts                     # Application bootstrap (Helmet, Cookies, Versioning, Swagger)
     ├── app.module.ts               # Root module configuring global guards pipeline
@@ -61,6 +65,8 @@ parlour_backend/
     │   │   ├── roles.decorator.ts                   # @Roles(...) assigns role requirements
     │   │   ├── current-user.decorator.ts            # @CurrentUser() extracts AuthUser
     │   │   └── allow-incomplete-profile.decorator.ts # @AllowIncompleteProfile() bypasses onboarding guard
+    │   ├── filters/
+    │   │   └── http-exception.filter.ts             # Unified error envelope { statusCode, code, message, errors }
     │   ├── guards/
     │   │   ├── jwt-auth.guard.ts           # JWT authentication guard (default protected)
     │   │   ├── roles.guard.ts              # RBAC guard matching user role with endpoint
@@ -75,8 +81,12 @@ parlour_backend/
     │       └── password.decorator.ts       # @PasswordField() unified password rules
     │
     └── modules/
+        ├── health/
+        │   ├── health.controller.ts        # GET /api/v1/health (DB ping)
+        │   └── health.module.ts
+        │
         ├── mail/
-        │   ├── mail.service.ts             # Nodemailer service (HTML OTP templates)
+        │   ├── mail.service.ts             # Nodemailer service (HTML OTP templates, offline-safe)
         │   └── mail.module.ts
         │
         ├── locations/
@@ -88,15 +98,35 @@ parlour_backend/
         │
         ├── media/
         │   ├── dto/
-        │   │   └── upload-image.dto.ts     # Upload purpose validation (AVATAR, BRAND_LOGO, etc.)
+        │   │   └── upload-image.dto.ts     # Upload purpose validation (AVATAR, BRANCH_IMAGE, etc.)
         │   ├── media.service.ts            # Sharp WebP conversion + S3 upload & atomic claim/release
         │   ├── media.controller.ts         # POST /api/v1/media/images (Multipart file upload)
         │   └── media.module.ts
         │
         ├── users/
+        │   ├── dto/
+        │   │   └── edit-profile.dto.ts     # Profile update validation
         │   ├── user.mapper.ts              # User response sanitization & nextStep state machine
-        │   ├── users.service.ts            # User persistence, failed login counts, social links
+        │   ├── users.service.ts            # User persistence, failed login counts, profile edit, soft delete
+        │   ├── users.controller.ts         # GET /api/v1/users/profile, PATCH profile, DELETE me
         │   └── users.module.ts
+        │
+        ├── owner/
+        │   ├── dto/
+        │   │   ├── step1-onboarding.dto.ts # Brand name/bio + first Branch address & image
+        │   │   ├── step3-hours.dto.ts      # Weekly opening/closing schedule
+        │   │   └── create-branch.dto.ts    # Subsequent branch creation (up to 30)
+        │   ├── owner.service.ts            # Multi-branch onboarding & ownership enforcement
+        │   ├── owner.controller.ts         # /api/v1/owner/onboarding & /branches endpoints
+        │   └── owner.module.ts
+        │
+        ├── admin/
+        │   ├── dto/
+        │   │   ├── reject-branch.dto.ts    # Rejection reason validation
+        │   │   └── trust-brand.dto.ts      # Trusted status & maxBranches limit
+        │   ├── admin.service.ts            # Moderation queue, approve/reject, trust brands
+        │   ├── admin.controller.ts         # /api/v1/admin/branches & /brands endpoints
+        │   └── admin.module.ts
         │
         └── auth/
             ├── interfaces/
@@ -421,8 +451,8 @@ model BranchStatusHistory {
 
 ### `prisma/seed.ts`
 Populates all **29 Pakistani cities** across all provinces and sets up the **Platform Admin**:
-- **Admin Email:** `admin@salon.local`
-- **Admin Password:** `ChangeMe-Strong-Pass-123` (Hashed with Argon2id)
+- **Admin Email:** Read from `ADMIN_EMAIL` in `.env` (e.g. `admin@salon.local`)
+- **Admin Password:** Read from `ADMIN_PASSWORD` in `.env` (Hashed with Argon2id)
 
 To run the seed at any time:
 ```bash
@@ -433,19 +463,19 @@ npx prisma db seed
 
 ## 4. Environment & Configuration
 
-### Active `.env` Setup
+### Environment Configuration Template (`.env.example`)
 ```env
 NODE_ENV=development
 PORT=3000
-DATABASE_URL=postgresql://postgres:Ahmed9061@localhost:5432/Beauty4u?schema=public
+DATABASE_URL=postgresql://<db_user>:<db_password>@localhost:5432/<db_name>?schema=public
 REDIS_URL=redis://localhost:6379
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
-JWT_ACCESS_SECRET=salon_super_secret_jwt_access_key_2026_secure_32_chars
-JWT_REFRESH_SECRET=salon_super_secret_jwt_refresh_key_2026_secure_32_chars
+JWT_ACCESS_SECRET=<jwt_access_secret_min_32_chars>
+JWT_REFRESH_SECRET=<jwt_refresh_secret_min_32_chars>
 JWT_ACCESS_TTL_SECONDS=900
 JWT_REFRESH_TTL_DAYS=7
-OTP_SECRET=salon_super_secure_otp_secret_key_2026_hash_minimum_32
+OTP_SECRET=<otp_secret_min_32_chars>
 
 SMTP_HOST=localhost
 SMTP_PORT=1025
@@ -459,13 +489,13 @@ APPLE_CLIENT_IDS=
 S3_ENDPOINT=http://localhost:9000
 S3_REGION=us-east-1
 S3_BUCKET=salon-media
-S3_ACCESS_KEY_ID=minio
-S3_SECRET_ACCESS_KEY=minio_password
+S3_ACCESS_KEY_ID=<minio_or_s3_key>
+S3_SECRET_ACCESS_KEY=<minio_or_s3_secret>
 S3_FORCE_PATH_STYLE=true
 MEDIA_PUBLIC_BASE_URL=http://localhost:9000/salon-media
 
 ADMIN_EMAIL=admin@salon.local
-ADMIN_PASSWORD=ChangeMe-Strong-Pass-123
+ADMIN_PASSWORD=<admin_password_min_12_chars>
 ```
 
 ### Docker Containers (`docker-compose.yml`)
@@ -637,23 +667,119 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@salon.local",
-    "password": "ChangeMe-Strong-Pass-123",
+    "password": "<admin_password_from_env>",
     "role": "ADMIN"
   }'
+```
+
+### 7. User Profile Management & Account Deletion
+```bash
+# Get logged in user profile
+curl http://localhost:3000/api/v1/users/profile \
+  -H "Authorization: Bearer <accessToken>"
+
+# Edit profile (name, phone, city, DOB, avatar)
+curl -X PATCH http://localhost:3000/api/v1/users/profile \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <accessToken>" \
+  -d '{"fullName": "Ayesha Khan Updated", "phone": "0300 9876543"}'
+
+# Delete Account (Apple & Google Play Store Compliance)
+curl -X DELETE http://localhost:3000/api/v1/users/me \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+### 8. Multi-Branch Owner Onboarding Flow
+```bash
+# Check onboarding state
+curl http://localhost:3000/api/v1/owner/onboarding \
+  -H "Authorization: Bearer <ownerAccessToken>"
+
+# Step 1: Save Brand & First Branch Location with 1-3 Images
+curl -X POST http://localhost:3000/api/v1/owner/onboarding/step1 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ownerAccessToken>" \
+  -d '{
+    "brandName": "Lavish Salon",
+    "brandBio": "Premium beauty services across Pakistan",
+    "branchName": "Safoora Branch",
+    "phone": "0300 1122334",
+    "addressLine": "Shop 12, Commercial Area",
+    "cityId": "<city-id>",
+    "type": "LADIES",
+    "imageIds": ["<media-id-1>"]
+  }'
+
+# Step 3: Save Working Hours
+curl -X POST http://localhost:3000/api/v1/owner/branches/<branchId>/hours \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ownerAccessToken>" \
+  -d '{
+    "hours": [
+      { "day": "MONDAY", "opensAtMin": 600, "closesAtMin": 1260 },
+      { "day": "TUESDAY", "opensAtMin": 600, "closesAtMin": 1260 },
+      { "day": "WEDNESDAY", "opensAtMin": 600, "closesAtMin": 1260 },
+      { "day": "THURSDAY", "opensAtMin": 600, "closesAtMin": 1260 },
+      { "day": "FRIDAY", "opensAtMin": 900, "closesAtMin": 1320 },
+      { "day": "SATURDAY", "opensAtMin": 600, "closesAtMin": 1320 }
+    ]
+  }'
+
+# Submit Branch for Admin Approval
+curl -X POST http://localhost:3000/api/v1/owner/branches/<branchId>/submit \
+  -H "Authorization: Bearer <ownerAccessToken>"
+```
+
+### 9. Platform Admin Moderation
+```bash
+# List all pending branches
+curl http://localhost:3000/api/v1/admin/branches/pending \
+  -H "Authorization: Bearer <adminAccessToken>"
+
+# Approve Branch
+curl -X POST http://localhost:3000/api/v1/admin/branches/<branchId>/approve \
+  -H "Authorization: Bearer <adminAccessToken>"
+
+# Reject Branch with Reason
+curl -X POST http://localhost:3000/api/v1/admin/branches/<branchId>/reject \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -d '{"reason": "Images are unclear. Please upload high resolution salon photos."}'
+
+# Mark Brand as Trusted (New branches will auto-approve)
+curl -X POST http://localhost:3000/api/v1/admin/brands/<brandId>/trust \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -d '{"isTrusted": true, "maxBranches": 30}'
+```
+
+### 10. Automated End-to-End Test Suite
+Run the full 20-point automated E2E test suite covering Health, Locations, Customer, Owner, Admin, and RBAC:
+```bash
+npm run test:e2e
 ```
 
 ---
 
 ## 12. Upcoming Milestones (Roadmap)
 
-- [x] **Sprint 1 (Part 1 & 2):** Foundation, Passwordless & Password Auth, Email OTP, JWT Rotation, Google/Apple OAuth, Web Cookies, Profile Completion, Cities.
-- [x] **Sprint 2 (Part 1):** Multi-Branch & Brand Schema, Media/S3 Service with Sharp, Admin Seed, Customer Avatar integration.
-- [ ] **Sprint 2 (Part 2):** 
-  - Owner Onboarding Step 1: Create Brand & First Branch with 1-3 Images.
-  - Step 3: Operating Working Hours.
-  - Submission for Admin Approval.
-  - Admin Approval / Rejection APIs & Email Notifications.
-- [ ] **Sprint 2 (Part 3):** Service Categories seed, Brand Catalog Services, Branch overrides, Deals.
-- [ ] **Sprint 3:** Staff Management, Working Schedules, Leaves.
+- [x] **Sprint 1 (Part 1 & 2):** Foundation, Password Authentication with Email OTP Verification & Reset, JWT Rotation, Google/Apple OAuth, Web Cookies, Profile Completion, Cities.
+- [x] **Sprint 2 (Part 1):** Multi-Branch & Brand Schema, Media/S3 Service with Sharp WebP strip EXIF, Admin Seed, Customer Avatar integration.
+- [x] **Sprint 2 (Part 2):**
+  - Multi-Branch Owner Onboarding Step 1 (Brand + First Branch + 1-3 Images).
+  - Step 3 (Branch Working Hours).
+  - Submission for Admin Approval workflow.
+  - Platform Admin moderation APIs (Pending list, Approve, Reject with reason, Trust brand).
+  - Users Profile Edit & Account Deletion (Apple/Google Play store compliance).
+  - Health check endpoint (`GET /api/v1/health` with DB query ping).
+  - Reverse Proxy (`trust proxy`) & Global Exception Filter (`HttpExceptionFilter`).
+  - Automated 20-point End-to-End test suite (`npm run test:e2e`).
+- [ ] **Sprint 2 (Part 3):** Service Categories seed, Brand Catalog Services, Branch price/duration overrides, Deals & Packages.
+- [ ] **Hardening Tasks:**
+  - Redis integration for Throttler (`@nest-lab/throttler-storage-redis` / `ioredis`).
+  - Cleanup Cron Job (expired OTP codes, unused S3 media assets).
+  - BullMQ integration for background email queue.
+- [ ] **Sprint 3:** Staff Management, Working Schedules, Service assignments, Leaves.
 - [ ] **Sprint 4:** High-Concurrency Availability & Slot Booking Engine (Distributed Locking & Double Booking Prevention).
 - [ ] **Sprint 5:** Pakistan Payments (Cash, JazzCash, Easypaisa, Raast, PayFast).
+

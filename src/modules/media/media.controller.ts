@@ -35,3 +35,4 @@ export class MediaController {
     return this.media.upload(user, dto.purpose, file);
   }
 }
+

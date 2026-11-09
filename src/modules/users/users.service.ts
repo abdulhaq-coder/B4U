@@ -63,6 +63,31 @@ export class UsersService {
     });
   }
 
+  updateProfile(
+    id: string,
+    data: Partial<{
+      fullName: string;
+      phone: string;
+      dateOfBirth: Date;
+      gender: Gender;
+      countryCode: string;
+      cityId: string;
+      avatarId: string | null;
+    }>,
+  ): Promise<UserWithAvatar> {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+      include: WITH_AVATAR,
+    });
+  }
+
+  deleteAccount(id: string): Promise<User> {
+    return this.prisma.user.delete({
+      where: { id },
+    });
+  }
+
   async findBySocial(provider: SocialProvider, providerUserId: string): Promise<UserWithAvatar | null> {
     const link = await this.prisma.socialAccount.findUnique({
       where: { provider_providerUserId: { provider, providerUserId } },
